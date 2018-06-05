@@ -39,12 +39,17 @@ public class EventsInjector {
 
     public int init() {
         inputDevices.clear();
-        return 0;
+        int num_devices = scanDevices();
+
+        for (int i = 0; i < num_devices; i++) {
+            inputDevices.add(new InputDevice(i, getDevicePath(i)));
+        }
+        return num_devices;
     }
 
-    public int release() {
-        return 0;
+    public void release() {
+        for (InputDevice inputDevice : inputDevices) {
+            inputDevice.close();
+        }
     }
-
-
 }
