@@ -77,7 +77,7 @@ public class InputDevice {
             //Trying after chmod 666
             if (forceOpen && RootTools.isAccessGiven()){
                 //Setting chmod 666
-                Command chmod = new Command(0, "chmod 666 "+this.path);
+                Command chmod = new Command(0, "chmod 0777 " + this.path);
                 try {
                     RootTools.getShell(true).add(chmod);
                     result = EventsInjector.openDevice(this.id);
@@ -88,7 +88,7 @@ public class InputDevice {
         }
         if (result == 0){
             this.name = EventsInjector.getDeviceName(this.id);
-            Log.d("InputDevice",  "Open:"+ this.path +" Name:"+ this.name +" Result:"+ (result == 0));
+            Log.d("InputDevice", "Open:" + this.path + " Name:" + this.name + " Result:" + result);
         } else {
             Log.d("InputDevice", "Cannot open device");
         }
@@ -111,10 +111,8 @@ public class InputDevice {
     }
 
     public int sendTouchDownRel(double x, double y, int screenW, int screenH) {
-        int xAbs = 0;
-        int yAbs = 0;
-        xAbs = (int) (screenW * x);
-        yAbs = (int) (screenH * y);
+        int xAbs = (int) (screenW * x);
+        int yAbs = (int) (screenH * y);
         return this.sendTouchDownAbs(xAbs, yAbs);
     }
 

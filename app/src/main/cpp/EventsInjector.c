@@ -46,8 +46,8 @@ void debug(char *format, ...) {
     va_end(pArgs);
     //ensure that the formatted string is NULL-terminated
     message_buffer[LASTCHAR] = '\0';
-
-    LOGD(message_buffer);
+    char *buff = message_buffer;
+    LOGD("%s", buff);
     //TextCallback(szBuffer);
 }
 
@@ -93,7 +93,7 @@ JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInject
 
     if (dir == NULL)
         return -1;
-    strcpy(device_name, device_name);
+    strcpy(device_name, device_path);
     filename = device_name + strlen(device_name);
     *filename++ = '/';
     while ((dirent = readdir(dir))) {
@@ -127,7 +127,7 @@ JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInject
         device_count++;
     }
     closedir(dir);
-    return 0;
+    return device_count;
 }
 
 /*
