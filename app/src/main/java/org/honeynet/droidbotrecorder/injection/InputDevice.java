@@ -100,20 +100,26 @@ public class InputDevice {
         return EventsInjector.injectEvent(this.id, EV_KEY, key, value);
     }
 
-    public int sendTouchDownAbs(int x, int y) {
+    private boolean isLegalCoordinate(int val) {
+        return (val >= 0 && val < 32768);
+    }
+
+    public boolean sendTouchDownRel(int x, int y) {
+        if (!(isLegalCoordinate(x) && isLegalCoordinate(y))) {
+            Log.e("InputDevice.java", "Error: please enter a value between 0 and 32767");
+            return false;
+        }
         EventsInjector.injectEvent(id, EV_ABS, ABS_MT_TRACKING_ID, 0x0000);
         EventsInjector.injectEvent(id, EV_ABS, ABS_MT_TOUCH_MAJOR, 0x0020);
         EventsInjector.injectEvent(id, EV_ABS, ABS_MT_PRESSURE, 0x0081);
         EventsInjector.injectEvent(id, EV_ABS, ABS_MT_POSITION_X, x);
         EventsInjector.injectEvent(id, EV_ABS, ABS_MT_POSITION_Y, y);
         EventsInjector.injectEvent(id, EV_SYN, SYN_REPORT, 0x0000);
-        return 0;
+        return true;
     }
 
-    public int sendTouchDownRel(double x, double y, int screenW, int screenH) {
-        int xAbs = (int) (screenW * x);
-        int yAbs = (int) (screenH * y);
-        return this.sendTouchDownAbs(xAbs, yAbs);
+    public boolean sendTouchDownAbs(int x, int y, int screenW, int screenH) {
+        return this.sendTouchDownRel((0x7fff / screenW * x), (0x7fff / screenH * y));
     }
 
     public int sendTouchUp() {
