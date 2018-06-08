@@ -2,13 +2,6 @@ package org.honeynet.droidbotrecorder.injection;
 
 import android.util.Log;
 
-import com.stericson.RootShell.exceptions.RootDeniedException;
-import com.stericson.RootShell.execution.Command;
-import com.stericson.RootTools.RootTools;
-
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
-
 /**
  * Created by anant on 1/6/18.
  */
@@ -70,22 +63,8 @@ public class InputDevice {
         EventsInjector.closeDevice(this.id);
     }
 
-    public boolean open(boolean forceOpen){
+    public boolean open() {
         int result = EventsInjector.openDevice(this.id);
-        if (result != 0){
-            //Permission denied.
-            //Trying after chmod 666
-            if (forceOpen && RootTools.isAccessGiven()){
-                //Setting chmod 666
-                Command chmod = new Command(0, "chmod 0777 " + this.path);
-                try {
-                    RootTools.getShell(true).add(chmod);
-                    result = EventsInjector.openDevice(this.id);
-                }catch(IOException | RootDeniedException | TimeoutException exception){
-                    Log.e("RootTools" , exception.getMessage());
-                }
-            }
-        }
         if (result == 0){
             this.name = EventsInjector.getDeviceName(this.id);
             Log.d("InputDevice", "Open:" + this.path + " Name:" + this.name + " Result:" + result);
