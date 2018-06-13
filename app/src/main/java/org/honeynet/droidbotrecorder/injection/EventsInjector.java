@@ -1,5 +1,7 @@
 package org.honeynet.droidbotrecorder.injection;
 
+import android.util.Log;
+
 import java.util.ArrayList;
 
 /**
@@ -14,6 +16,18 @@ public class EventsInjector {
     }
 
     public ArrayList<InputDevice> inputDevices = new ArrayList<>();
+
+    public EventsInjector() {
+        inputDevices.clear();
+        int num_devices = scanDevices();
+        if (num_devices <= 0) {
+            Log.v("EventsInjector", "" + num_devices);
+        }
+        for (int i = 0; i < num_devices; i++) {
+            inputDevices.add(new InputDevice(i, getDevicePath(i)));
+        }
+        this.enableDebug(true);
+    }
 
     static native int intEnableDebug(int enable);
 
@@ -37,21 +51,26 @@ public class EventsInjector {
 
     static native int injectEvent(int deviceId, int type, int code, int value);
 
+    public InputDevice getTouchScreen() {
+        InputDevice device = null;
+        for (InputDevice inputDevice : inputDevices) {
+            if (inputDevice.getPath().contains("event1")) {
+                device = inputDevice;
+                break;
+            }
+        }
+        try {
+            Log.v("Touchscreen", device.getPath());
+        } catch (NullPointerException e) {
+            Log.e("EventsInjector", "getTouchScreen(): " + e.getMessage());
+        }
+        return device;
+    }
+
     public void enableDebug(boolean enable) {
         if (enable) {
             intEnableDebug(1);
         }
-    }
-
-    public int init() {
-        inputDevices.clear();
-
-        int num_devices = scanDevices();
-
-        for (int i = 0; i < num_devices; i++) {
-            inputDevices.add(new InputDevice(i, getDevicePath(i)));
-        }
-        return num_devices;
     }
 
     public void release() {
