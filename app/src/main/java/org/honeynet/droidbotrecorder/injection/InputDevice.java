@@ -21,6 +21,13 @@ public class InputDevice {
     private String name;
     private boolean open;
 
+    public InputDevice(InputDevice in) {
+        this.id = in.id;
+        this.path = in.path;
+        this.name = in.name;
+        this.open = in.open;
+    }
+
     public InputDevice(int id, String path) {
         this.id = id;
         this.path = path;
@@ -65,7 +72,7 @@ public class InputDevice {
 
     public boolean open() {
         int result = EventsInjector.openDevice(this.id);
-        if (result == 0){
+        if (result == 0) {
             this.name = EventsInjector.getDeviceName(this.id);
             Log.d("InputDevice", "Open:" + this.path + " Name:" + this.name + " Result:" + result);
         } else {
