@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <meta charset="UTF-8">
+        <title>Test Touch</title>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    </head>
+
+    <body>
+        <canvas
+                id="phone_screen"
+                width="450"
+                height="800"
+                style="border:1px solid #000000;"></canvas>
+    </body>
+
+    <script type="text/javascript">
+        console.log("Width: " + window.innerWidth);
+        console.log("Height: " + window.innerHeight);
+        var height = 0;
+        var width = 0;
+        var kanvas = document.getElementById("phone_screen")
+        if(window.innerHeight <= window.innerWidth){
+            height = window.innerHeight - 10;
+            width = Math.floor(9 * window.innerHeight/16) - 30;
+        }else{
+            width = window.innerWidth ;
+            height = Math.floor(16 * window.innerWidth/9) - 30;
+        }
+        kanvas.width = width;
+        kanvas.height = height;
+
+        var href = "http://" + window.location.hostname + ":" + window.location.port;
+        if ("WebSocket" in window) {
+            var ws = new WebSocket("ws://"+window.location.hostname+":"+window.location.port+"/input");
+            ws.onmessage = function (evt) {
+               var received_msg = evt.data;
+               console.log("Message is received...");
+            };
+
+            ws.onclose = function() {
+               // websocket is closed.
+               console.log("Connection is closed...");
+            };
+        } else {
+            // The browser doesn't support WebSocket
+            alert("WebSocket NOT supported by your Browser!");
+        }
+        window.addEventListener("load", function(){
+            var canvas = document.getElementById('phone_screen')
+            var startx = 0
+            var starty = 0
+            var prevy = 0
+            var prevx = 0
+            var dist = 0
+            var flag_mousedown = 0
+
+            canvas.addEventListener('mousedown', function(e){
+                if(flag_mousedown == 0){
+                    var touchobj = e // reference first touch point (ie: first finger)
+                    startx = parseInt(touchobj.clientX)
+                    // get x position of touch point relative to left edge of browser
+                    starty = parseInt(touchobj.clientY)
+                    prevx = startx
+                    prevy = starty
+
+                    ws.send(
+                        JSON.stringify(
+                            {
+                                type: true,
+                                x: (startx/canvas.width)*32767,
+                                y: (starty/canvas.height)*32767,
+                                timestamp: Date.now()
+                            }
+                        )
+                    );
+                    flag_mousedown = 1
+                }
+                console.log("Posted down")
+                e.preventDefault()
+            }, false)
+
+            canvas.addEventListener('mousemove', function(e){
+                if(flag_mousedown != 0){
+                    var touchobj = e // reference first touch point for this event
+                    var currx = parseInt(touchobj.clientX)
+                    var curry = parseInt(touchobj.clientY)
+                    prevx = currx
+                    prevy = curry
+                    ws.send(
+                        JSON.stringify(
+                            {
+                                type: true,
+                                x: (currx/canvas.width)*32767,
+                                y: (curry/canvas.height)*32767,
+                                timestamp: Date.now()
+                            }
+                        )
+                    );
+                }
+                e.preventDefault()
+            }, false)
+
+            canvas.addEventListener('mouseup', function(e){
+                if(flag_mousedown !=0){
+                    var touchobj = e // reference first touch point for this event
+                    ws.send(
+                        JSON.stringify(
+                            {
+                                type: false,
+                                timestamp: Date.now()
+                            }
+                        )
+                    )
+                    flag_mousedown = 0
+                }
+                e.preventDefault()
+            }, false)
+        }, false)
+
+    </script>
+</html>
+
+
