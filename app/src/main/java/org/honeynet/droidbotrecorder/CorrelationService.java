@@ -31,17 +31,15 @@ public class CorrelationService extends IntentService {
     private static final String AUTHORITY =
             BuildConfig.APPLICATION_ID + ".provider";
     private static final int FOREGROUND_ID = 182752;
-    static boolean justOnce = true;
-    private static AccessibilityNodeInfo lastState = null;
-    private static AccessibilityNodeInfo latestState = null;
+    private static volatile AccessibilityNodeInfo lastState = null;
+    private static volatile AccessibilityNodeInfo latestState = null;
     private static boolean serviceIsAlive = true;
-    private static LogDeviceState stateLogger;
     private AccessibilityEvent prevAccessibilityEvent;
 
     public CorrelationService() {
         super("CorrelationService");
         prevAccessibilityEvent = null;
-        stateLogger = new LogDeviceState();
+
     }
 
     /**
@@ -213,27 +211,51 @@ public class CorrelationService extends IntentService {
         Context context = this;
         UQI uqi = new UQI(context);
         uqi.getData(AccEvent.asWindowChanges(), Purpose.FEATURE("Collect Layout from System"))
-        .keepChanges()
-        .forEach(
-            new Callback<Item>() {
-                @Override
-                protected void onInput(Item input) {
-                    if (AccEvent.class == input.getClass()) {
-                        //TODO: Handle UI update
-                        AccEvent event = (AccEvent) input;
-                        if (!(
-                                event.getValueByField(AccEvent.PACKAGE_NAME).equals(
-                                        "com.android.systemui"
-                                )
-                        )) {
-                            AccessibilityEvent accessibilityEvent = event.getValueByField(AccEvent.EVENT);
-                            latestState = event.getValueByField(AccEvent.ROOT_NODE);
+                .keepChanges()
+                .forEach(
+                        new Callback<Item>() {
+                            @Override
+                            protected void onInput(Item input) {
+                                if (AccEvent.class == input.getClass()) {
+                                    //TODO: Handle UI update
+                                    AccEvent event = (AccEvent) input;
+                                    if (!(
+                                            event.getValueByField(AccEvent.PACKAGE_NAME).equals(
+                                                    "com.android.systemui"
+                                            )
+                                    )) {
+                                        Log.v("ON_INPUT", "Event recieved at " + System.currentTimeMillis());
+                                        AccessibilityEvent accessibilityEvent = event.getValueByField(AccEvent.EVENT);
+                                        latestState = event.getValueByField(AccEvent.ROOT_NODE);
+                                    }
+                                }
+                            }
                         }
+                );
+        Thread deviceStateLogger = new Thread() {
+            @Override
+            public void run() {
+                super.run();
+                while (!this.isInterrupted()) {
+                    try {
+                        if (!(latestState == null)) {
+                            if (!(latestState == lastState)) {
+                                Log.v("LOG_DEVICE_STATE", "Writing state at:" + System.currentTimeMillis());
+                                writeNodeInfoToFile(latestState, "state_" + System.currentTimeMillis() + ".json", getBaseContext());
+                                lastState = latestState;
+                            } else {
+                                Log.v("TATTI", "EQUAL!!!");
+                            }
+                        }
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        Log.e("TEST_THREAD", e.getMessage());
                     }
+
                 }
             }
-        );
-        stateLogger.run();
+        };
+        deviceStateLogger.run();
     }
 
     private Notification buildNotification() {
@@ -275,31 +297,7 @@ public class CorrelationService extends IntentService {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        serviceIsAlive = false;
     }
 
-    private class LogDeviceState implements Runnable {
-        @Override
-        public void run() {
-            while (serviceIsAlive) {
-                if (!(latestState == null)) {
-                    if (!latestState.equals(lastState)) {
-                        writeNodeInfoToFile(
-                                latestState,
-                                "state" + System.currentTimeMillis() + ".json",
-                                getBaseContext()
-                        );
-                        lastState = latestState;
 
-                        try {
-                            Thread.sleep(1000L); //Logs the device state every second
-                            // iff any new events have occurred
-                        } catch (InterruptedException ie) {
-                            Log.e("LOG_DEVICE_STATE", ie.getMessage());
-                        }
-                    }
-                }
-            }
-        }
-    }
 }

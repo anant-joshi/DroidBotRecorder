@@ -1,6 +1,7 @@
 package org.honeynet.droidbotrecorder.input;
 
 import android.view.accessibility.AccessibilityNodeInfo;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -53,18 +54,6 @@ public class TouchRecognizer {
         return touchList.size() == 2 && inVicinity(touchList.get(0), touchList.get(1)) &&
                 (touchList.get(0).getTimeInMillis() - touchList.get(1).getTimeInMillis()) < 500;
     }
-
-//    private static boolean checkScroll() {
-//        TouchEvent first = touchList.get(0);
-//        TouchEvent last = touchList.get(touchList.size() - 1);
-//        double directionX = last.getRelX() - first.getRelX();
-//        double directionY = last.getRelY() - first.getRelY();
-//        double magnitude = Math.sqrt(Math.pow(directionX, 2) + Math.pow(directionY, 2));
-//        double direction = Math.atan2(directionY, directionX);
-//        for (TouchEvent event: touchList) {
-//        }
-//        return false;
-//    }
 
     private static boolean checkScroll(){
         return false;

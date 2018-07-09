@@ -1,6 +1,5 @@
 package org.honeynet.droidbotrecorder;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 
@@ -21,9 +20,10 @@ public class MainActivity extends AppCompatActivity {
 //        this.handler = new RequestHandler(queue);
 //        this.webServer.run();
 //        this.handler.run();
-        Intent startServiceIntent = new Intent(this, CorrelationService.class);
-        startServiceIntent.setAction(CorrelationService.ACTION_INIT);
-        startService(startServiceIntent);
+//        Intent startServiceIntent = new Intent(this, CorrelationService.class);
+//        startServiceIntent.setAction(CorrelationService.ACTION_INIT);
+//        startService(startServiceIntent);
+        CorrelationService.initialize(this);
     }
 
     @Override
