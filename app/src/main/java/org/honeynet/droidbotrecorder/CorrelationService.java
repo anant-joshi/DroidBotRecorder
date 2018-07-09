@@ -11,7 +11,6 @@ import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
-import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
@@ -33,11 +32,16 @@ public class CorrelationService extends IntentService {
             BuildConfig.APPLICATION_ID + ".provider";
     private static final int FOREGROUND_ID = 182752;
     static boolean justOnce = true;
+    private static AccessibilityNodeInfo lastState = null;
+    private static AccessibilityNodeInfo latestState = null;
+    private static boolean serviceIsAlive = true;
+    private static LogDeviceState stateLogger;
     private AccessibilityEvent prevAccessibilityEvent;
 
     public CorrelationService() {
         super("CorrelationService");
         prevAccessibilityEvent = null;
+        stateLogger = new LogDeviceState();
     }
 
     /**
@@ -52,7 +56,6 @@ public class CorrelationService extends IntentService {
         intent.setAction(ACTION_INIT);
         context.startService(intent);
     }
-
 
     private static void showNodeInfo(AccessibilityNodeInfo nodeInfo, int indentLevel) {
         StringBuilder paddingBuilder = new StringBuilder();
@@ -199,17 +202,7 @@ public class CorrelationService extends IntentService {
             switch (action) {
                 case ACTION_INIT: {
                     startForeground(FOREGROUND_ID, buildNotification());
-//                Toast.makeText(getApplicationContext(), "Started Service", Toast.LENGTH_SHORT).show();
                     handleInitialize();
-                }
-                break;
-
-                case ACTION_LAYOUT_DUMP: {
-
-                }
-                break;
-
-                case ACTION_TOUCH_INPUT: {
                 }
                 break;
             }
@@ -219,51 +212,28 @@ public class CorrelationService extends IntentService {
     private void handleInitialize() {
         Context context = this;
         UQI uqi = new UQI(context);
-        uqi.getData(
-                AccEvent.asWindowChanges(),
-                Purpose.FEATURE("Collect Layout from System")
-        ).keepChanges().forEach(
-                new Callback<Item>() {
-                    @Override
-                    protected void onInput(Item input) {
-                        if (AccEvent.class == input.getClass()) {
-                            //TODO: Handle UI update
-                            AccEvent event = (AccEvent) input;
-                            if (!(
-                                    event.getValueByField(AccEvent.PACKAGE_NAME).equals(
-                                            "com.android.systemui"
-                                    )
-                                    //                                || event.getValueByField(AccEvent.EVENT_TYPE).equals(
-                                    //                                        AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
-                                    //                                )
-                            )) {
-                                AccessibilityEvent accessibilityEvent = event.getValueByField(AccEvent.EVENT);
-
-                                Log.v("EVENT_TYPE: ",
-                                        "----" +
-                                                AccessibilityEvent.eventTypeToString(
-                                                        accessibilityEvent.getEventType()
-                                                )
-                                                + "----"
-                                );
-                                Log.v("ACTION: ", MotionEvent.actionToString(accessibilityEvent.getAction()));
-                                AccessibilityNodeInfo rootNode = event.getValueByField(AccEvent.ROOT_NODE);
-                                writeNodeInfoToFile(rootNode, "state_" + "" + System.currentTimeMillis() + ".json", getBaseContext());
-                                if (event.getValueByField(AccEvent.EVENT_TYPE)
-                                        .equals(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)) {
-                                    int changeType = accessibilityEvent.getContentChangeTypes();
-                                    if ((changeType & AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE) != 0) {
-                                        //TODO: Handle scroll/change in page, etc.
-                                    }
-                                } else {
-//                                    Log.v("AccessibilityEvent", "event: "+event.toJson());
-                                }
-                                prevAccessibilityEvent = event.getValueByField(AccEvent.EVENT);
-                            }
+        uqi.getData(AccEvent.asWindowChanges(), Purpose.FEATURE("Collect Layout from System"))
+        .keepChanges()
+        .forEach(
+            new Callback<Item>() {
+                @Override
+                protected void onInput(Item input) {
+                    if (AccEvent.class == input.getClass()) {
+                        //TODO: Handle UI update
+                        AccEvent event = (AccEvent) input;
+                        if (!(
+                                event.getValueByField(AccEvent.PACKAGE_NAME).equals(
+                                        "com.android.systemui"
+                                )
+                        )) {
+                            AccessibilityEvent accessibilityEvent = event.getValueByField(AccEvent.EVENT);
+                            latestState = event.getValueByField(AccEvent.ROOT_NODE);
                         }
                     }
                 }
+            }
         );
+        stateLogger.run();
     }
 
     private Notification buildNotification() {
@@ -284,7 +254,6 @@ public class CorrelationService extends IntentService {
                 .setSmallIcon(R.mipmap.ic_launcher_round)
                 .setContentTitle("Activity Recorder")
                 .setContentText("Recording all the things!");
-
         return notificationBuilder.build();
     }
 
@@ -301,5 +270,36 @@ public class CorrelationService extends IntentService {
         NotificationManager notificationManager = getSystemService(NotificationManager.class);
         notificationManager.createNotificationChannel(chan);
         return channelId;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        serviceIsAlive = false;
+    }
+
+    private class LogDeviceState implements Runnable {
+        @Override
+        public void run() {
+            while (serviceIsAlive) {
+                if (!(latestState == null)) {
+                    if (!latestState.equals(lastState)) {
+                        writeNodeInfoToFile(
+                                latestState,
+                                "state" + System.currentTimeMillis() + ".json",
+                                getBaseContext()
+                        );
+                        lastState = latestState;
+
+                        try {
+                            Thread.sleep(1000L); //Logs the device state every second
+                            // iff any new events have occurred
+                        } catch (InterruptedException ie) {
+                            Log.e("LOG_DEVICE_STATE", ie.getMessage());
+                        }
+                    }
+                }
+            }
+        }
     }
 }
