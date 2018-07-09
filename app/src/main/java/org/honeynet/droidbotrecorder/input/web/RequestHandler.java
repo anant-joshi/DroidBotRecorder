@@ -1,9 +1,9 @@
-package org.honeynet.droidbotrecorder;
+package org.honeynet.droidbotrecorder.input.web;
 
 import android.util.Log;
 
-import org.honeynet.droidbotrecorder.injection.EventsInjector;
-import org.honeynet.droidbotrecorder.injection.InputDevice;
+import org.honeynet.droidbotrecorder.input.injection.EventsInjector;
+import org.honeynet.droidbotrecorder.input.injection.InputDevice;
 
 import java.util.concurrent.PriorityBlockingQueue;
 

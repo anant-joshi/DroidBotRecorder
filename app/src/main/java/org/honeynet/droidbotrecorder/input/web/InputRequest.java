@@ -1,4 +1,4 @@
-package org.honeynet.droidbotrecorder;
+package org.honeynet.droidbotrecorder.input.web;
 
 import android.support.annotation.NonNull;
 

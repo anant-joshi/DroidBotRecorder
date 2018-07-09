@@ -1,4 +1,4 @@
-package org.honeynet.droidbotrecorder;
+package org.honeynet.droidbotrecorder.input.web;
 
 import android.content.Context;
 import android.util.Log;
@@ -10,6 +10,7 @@ import com.koushikdutta.async.http.server.AsyncHttpServerRequest;
 import com.koushikdutta.async.http.server.AsyncHttpServerResponse;
 import com.koushikdutta.async.http.server.HttpServerRequestCallback;
 
+import org.honeynet.droidbotrecorder.R;
 import org.json.JSONException;
 import org.json.JSONObject;
 

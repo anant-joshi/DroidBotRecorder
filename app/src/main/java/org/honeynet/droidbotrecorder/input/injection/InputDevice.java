@@ -1,4 +1,4 @@
-package org.honeynet.droidbotrecorder.injection;
+package org.honeynet.droidbotrecorder.input.injection;
 
 import android.util.Log;
 
