@@ -52,11 +52,12 @@ void debug(char *format, ...) {
 }
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    intEnableDebug
  * Signature: (I)I
  */
-JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_intEnableDebug
+JNIEXPORT jint JNICALL
+Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_intEnableDebug
         (JNIEnv *env, jclass this_, jint enable) {
     enable_debug = enable;
     return enable_debug;
@@ -78,11 +79,11 @@ struct input_event event;
 
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    scanDevices
  * Signature: ()I
  */
-JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_scanDevices
+JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_scanDevices
         (JNIEnv *env, jclass this_) {
     device_count = 0;
     char device_name[PATH_MAX];
@@ -131,11 +132,11 @@ JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInject
 }
 
 /*
-* Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+* Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    openDevice
  * Signature: (I)I
  */
-JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_openDevice
+JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_openDevice
         (JNIEnv *env, jclass this_, jint index) {
     if (index > device_count || pDevs == NULL) {
         return -1;
@@ -175,11 +176,11 @@ JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInject
 
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    closeDevice
  * Signature: (I)I
  */
-JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_closeDevice
+JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_closeDevice
         (JNIEnv *env, jclass this_, jint index) {
     if (index >= device_count || pDevs == NULL) {
         return -1;
@@ -197,31 +198,33 @@ JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInject
 
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    getDevicePath
  * Signature: (I)Ljava/lang/String;
  */
-JNIEXPORT jstring JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_getDevicePath
+JNIEXPORT jstring JNICALL
+Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_getDevicePath
         (JNIEnv *env, jclass this_, jint index) {
     return (*env)->NewStringUTF(env, pDevs[index].device_path);
 }
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    getDeviceName
  * Signature: (I)Ljava/lang/String;
  */
-JNIEXPORT jstring JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_getDeviceName
+JNIEXPORT jstring JNICALL
+Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_getDeviceName
         (JNIEnv *env, jclass this_, jint index) {
     return (*env)->NewStringUTF(env, pDevs[index].device_name);
 }
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    pollDevice
  * Signature: (I)I
  */
-JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_pollDevice
+JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_pollDevice
         (JNIEnv *env, jclass this_, jint index) {
     if (index >= device_count || pDevs[index].file_descriptors.fd == -1) return -1;
     poll(file_descriptors, device_count, -1);
@@ -237,41 +240,41 @@ JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInject
 }
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    getType
  * Signature: ()I
  */
-JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_getType
+JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_getType
         (JNIEnv *env, jclass this_) {
     return event.type;
 }
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    getCode
  * Signature: ()I
  */
-JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_getCode
+JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_getCode
         (JNIEnv *env, jclass this_) {
     return event.code;
 }
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    getValue
  * Signature: ()I
  */
-JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_getValue
+JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_getValue
         (JNIEnv *env, jclass this_) {
     return event.value;
 }
 
 /*
- * Class:     org_honeynet_droidbotrecorder_injection_EventsInjector
+ * Class:     org_honeynet_droidbotrecorder_input_injection_EventsInjector
  * Method:    injectEvent
  * Signature: (IIII)I
  */
-JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_injection_EventsInjector_injectEvent
+JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_injectEvent
         (JNIEnv *env, jclass this_, jint deviceId, jint type, jint code, jint value) {
     int index = deviceId;
     if (index >= device_count || pDevs[index].file_descriptors.fd == -1) return -1;
