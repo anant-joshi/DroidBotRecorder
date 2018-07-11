@@ -6,11 +6,14 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import android.view.Display;
+import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
@@ -28,18 +31,16 @@ public class CorrelationService extends IntentService {
     public static final String ACTION_INIT = "org.honeynet.droidbotrecorder.layout.action.ACTION_INIT";
     public static final String ACTION_TOUCH_INPUT = "org.honeynet.droidbotrecorder.layout.action.ACTION_TOUCH_INPUT";
     public static final String ACTION_LAYOUT_DUMP = "org.honeynet.droidbotrecorder.layout.action.ACTION_LAYOUT_DUMP";
-    private static final String AUTHORITY =
-            BuildConfig.APPLICATION_ID + ".provider";
+    private static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".provider";
     private static final int FOREGROUND_ID = 182752;
-    private static volatile AccessibilityNodeInfo lastState = null;
-    private static volatile AccessibilityNodeInfo latestState = null;
-    private static boolean serviceIsAlive = true;
-    private AccessibilityEvent prevAccessibilityEvent;
+    public static volatile AccessibilityNodeInfo lastState = null;
+    public static volatile AccessibilityNodeInfo latestState = null;
+    public static Rect displaySize;
+
+
 
     public CorrelationService() {
         super("CorrelationService");
-        prevAccessibilityEvent = null;
-
     }
 
     /**
@@ -53,6 +54,13 @@ public class CorrelationService extends IntentService {
         Intent intent = new Intent(context, CorrelationService.class);
         intent.setAction(ACTION_INIT);
         context.startService(intent);
+        WindowManager window = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        Display display = window.getDefaultDisplay();
+        Point size = new Point();
+        display.getSize(size);
+        int right = size.x;
+        int bottom = size.y;
+        displaySize = new Rect(0, 0, right, bottom);
     }
 
     private static void showNodeInfo(AccessibilityNodeInfo nodeInfo, int indentLevel) {
@@ -209,6 +217,7 @@ public class CorrelationService extends IntentService {
 
     private void handleInitialize() {
         Context context = this;
+
         UQI uqi = new UQI(context);
         uqi.getData(AccEvent.asWindowChanges(), Purpose.FEATURE("Collect Layout from System"))
                 .keepChanges()
@@ -227,11 +236,13 @@ public class CorrelationService extends IntentService {
                                         Log.v("ON_INPUT", "Event recieved at " + System.currentTimeMillis());
                                         AccessibilityEvent accessibilityEvent = event.getValueByField(AccEvent.EVENT);
                                         latestState = event.getValueByField(AccEvent.ROOT_NODE);
+                                        ActivityLog.viewStateList.add(latestState);
                                     }
                                 }
                             }
                         }
                 );
+
         Thread deviceStateLogger = new Thread() {
             @Override
             public void run() {
@@ -243,8 +254,6 @@ public class CorrelationService extends IntentService {
                                 Log.v("LOG_DEVICE_STATE", "Writing state at:" + System.currentTimeMillis());
                                 writeNodeInfoToFile(latestState, "state_" + System.currentTimeMillis() + ".json", getBaseContext());
                                 lastState = latestState;
-                            } else {
-                                Log.v("TATTI", "EQUAL!!!");
                             }
                         }
                         Thread.sleep(1000);
@@ -255,6 +264,7 @@ public class CorrelationService extends IntentService {
                 }
             }
         };
+
         deviceStateLogger.run();
     }
 
