@@ -230,7 +230,7 @@ JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_Events
     poll(file_descriptors, device_count, -1);
     if (file_descriptors[index].revents) {
         if (file_descriptors[index].revents & POLLIN) {
-            int res = read(file_descriptors[index].fd, &event, sizeof(event));
+            int res = (int) read(file_descriptors[index].fd, &event, sizeof(event));
             if (res < (int) sizeof(event)) {
                 return 1;
             } else return 0;
@@ -293,3 +293,15 @@ JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_Events
     return 0;
 }
 
+JNIEXPORT jintArray JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_readEvent
+                       (JNIEnv *env, jclass this_, jint index) {
+    jint eventArr[3];
+    jintArray jArray;
+    while(Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_pollDevice(env, this_, index) != 0);
+    eventArr[0] = event.type;
+    eventArr[1] = event.code;
+    eventArr[2] = event.value;
+    jArray = (*env)->NewIntArray(env, 3);
+    (*env)->SetIntArrayRegion(env, jArray, 0, 3, eventArr);
+    return jArray;
+}

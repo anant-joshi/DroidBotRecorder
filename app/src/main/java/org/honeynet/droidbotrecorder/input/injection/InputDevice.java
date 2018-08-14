@@ -7,7 +7,7 @@ import android.util.Log;
  */
 
 public class InputDevice {
-    private static final int EV_ABS = 0x0003,
+    public static final int EV_ABS = 0x0003,
             ABS_MT_TRACKING_ID = 0x0039,
             EV_KEY = 0x0001,
             ABS_MT_PRESSURE = 0x003a,
@@ -20,6 +20,7 @@ public class InputDevice {
     private String path;
     private String name;
     private boolean open;
+
 
     public InputDevice(InputDevice in) {
         this.id = in.id;
@@ -75,8 +76,10 @@ public class InputDevice {
         if (result == 0) {
             this.name = EventsInjector.getDeviceName(this.id);
             Log.d("InputDevice", "Open:" + this.path + " Name:" + this.name + " Result:" + result);
+            this.open = true;
         } else {
             Log.d("InputDevice", "Cannot open device");
+            this.open = false;
         }
         return (result == 0);
     }
@@ -113,6 +116,14 @@ public class InputDevice {
         EventsInjector.injectEvent(this.id, EV_ABS, ABS_MT_TRACKING_ID, -1);
         EventsInjector.injectEvent(this.id, EV_SYN, SYN_REPORT, 0);
         return 0;
+    }
+
+    public RawEvent getEvent(){
+        int[] eventArray = EventsInjector.readEvent(this.id);
+        if(eventArray.length != 3){
+            throw new RuntimeException("Error! malformed event from JNI");
+        }
+        return new RawEvent(eventArray[0], eventArray[1], eventArray[2]);
     }
 }
 

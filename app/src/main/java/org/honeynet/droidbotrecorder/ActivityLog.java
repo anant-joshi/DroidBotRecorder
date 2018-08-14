@@ -4,34 +4,30 @@ package org.honeynet.droidbotrecorder;
 import android.view.accessibility.AccessibilityNodeInfo;
 
 import org.honeynet.droidbotrecorder.input.TouchEvent;
+import org.honeynet.droidbotrecorder.serialization.State;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ActivityLog {
+
     private static final ActivityLog ourInstance = new ActivityLog();
-    public static List<AccessibilityNodeInfo> viewStateList = new ArrayList<>();
-    public static List<TouchEvent> touchEventList = new ArrayList<>();
-    private static boolean isRecording;
-    private static String recordingName;
+    public List<AccessibilityNodeInfo> viewStateList;
+    public List<String> activityList;
+    public List<TouchEvent> touchEventList;
+    public List<State> deviceStateList;
+
 
     private ActivityLog() {
-        isRecording = false;
+        this.viewStateList = new ArrayList<>();
+        this.activityList = new ArrayList<>();
+        this.touchEventList = new ArrayList<>();
+        this.deviceStateList = new ArrayList<>();
     }
 
-    static ActivityLog getInstance() {
+
+    public static ActivityLog getInstance() {
         return ourInstance;
     }
 
-    public static void toggleRecording() {
-        isRecording = !isRecording;
-    }
-
-    public static boolean isRecording() {
-        return isRecording;
-    }
-
-    public static void setRecording(boolean isRecording) {
-        ActivityLog.isRecording = isRecording;
-    }
 }

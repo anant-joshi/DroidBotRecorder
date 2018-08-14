@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Build;
+import android.os.Environment;
 import android.support.annotation.RequiresApi;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
@@ -17,8 +18,27 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+
+import org.honeynet.droidbotrecorder.input.TouchEventBuilder;
+import org.honeynet.droidbotrecorder.input.TouchRecognizer;
+import org.honeynet.droidbotrecorder.input.injection.EventsInjector;
+import org.honeynet.droidbotrecorder.input.injection.InputDevice;
+import org.honeynet.droidbotrecorder.input.injection.RawEvent;
+import org.honeynet.droidbotrecorder.serialization.SerializationUtils;
+import org.honeynet.droidbotrecorder.serialization.SerializedView;
+import org.honeynet.droidbotrecorder.serialization.State;
+
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.List;
 
 import io.github.privacystreams.accessibility.AccEvent;
 import io.github.privacystreams.core.Callback;
@@ -36,11 +56,14 @@ public class CorrelationService extends IntentService {
     public static volatile AccessibilityNodeInfo lastState = null;
     public static volatile AccessibilityNodeInfo latestState = null;
     public static Rect displaySize;
+    public static String currentActivity = "[unknown]";
+    public static String runId;
 
 
 
     public CorrelationService() {
         super("CorrelationService");
+        runId = SerializationUtils.getMd5Str("DroidbotRecorder"+Math.random());
     }
 
     /**
@@ -53,14 +76,19 @@ public class CorrelationService extends IntentService {
     public static void initialize(Context context) {
         Intent intent = new Intent(context, CorrelationService.class);
         intent.setAction(ACTION_INIT);
-        context.startService(intent);
         WindowManager window = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-        Display display = window.getDefaultDisplay();
-        Point size = new Point();
-        display.getSize(size);
-        int right = size.x;
-        int bottom = size.y;
-        displaySize = new Rect(0, 0, right, bottom);
+        try{
+            Display display = window.getDefaultDisplay();
+            Point size = new Point();
+            display.getSize(size);
+            int right = size.x;
+            int bottom = size.y;
+            displaySize = new Rect(0, 0, right, bottom);
+            context.startService(intent);
+        }catch(NullPointerException npe){
+            Log.e("CorrelationService", npe.getMessage());
+            npe.printStackTrace();
+        }
     }
 
     private static void showNodeInfo(AccessibilityNodeInfo nodeInfo, int indentLevel) {
@@ -94,108 +122,81 @@ public class CorrelationService extends IntentService {
         Log.v("SHOW_NODE_INFO", paddingMinus1 + "},\n");
     }
 
-    private static void writeNodeInfoToFile(AccessibilityNodeInfo rootNode, String filename, Context context) {
-        File path = context.getFilesDir();
+    private void writeNodeInfoToFile(AccessibilityNodeInfo rootNode, String filename, Context context) {
+        File sdcard = context.getExternalFilesDir(null);
+        File path = new File(sdcard.getAbsolutePath()+"/run_"+runId+"/states/");
+        if(!path.mkdirs()){
+            Log.e("ERROR", path.getAbsolutePath());
+//            throw new RuntimeException("Error, unable to create folder");
+        }
         File file = new File(path, filename);
         try {
             PrintWriter writer = new PrintWriter(file, "UTF-8");
-            writeNodeInfo(rootNode, 1, writer);
-            Log.v("FILE_PATH", file.getAbsolutePath());
+            String writeValue = writeNodeInfo(rootNode);
+            writer.print(writeValue);
             writer.close();
-        } catch (Exception e) {
+        } catch (FileNotFoundException | UnsupportedEncodingException e) {
+            Log.e("WRITE_NODE_INFO", e.getLocalizedMessage());
             Log.e("WRITE_NODE_INFO", e.getMessage());
+            e.printStackTrace();
+            Log.e("WRITE_NODE_INFO", e.getClass().toString());
         }
     }
 
-    private static void writeBounds(Rect bounds, PrintWriter writer, String padding) {
-        writer.println(padding + "\"bounds\" : " + "[");
-        writer.println(padding + "\t[");
-        writer.println(padding + "\t\t" + bounds.left + ",");
-        writer.println(padding + "\t\t" + bounds.top + "");
-        writer.println(padding + "\t],");
-        writer.println(padding + "\t[");
-        writer.println(padding + "\t\t" + bounds.left + ",");
-        writer.println(padding + "\t\t" + bounds.top + "");
-        writer.println(padding + "\t]");
-        writer.println(padding + "],");
-    }
-
-    private static Object serializedValue(Object value) {
-        if (value instanceof CharSequence) {
-            return "\"" + value + "\"";
-        } else {
-            return value;
+    private void serializeNodeInfo(List<SerializedView> nodeList, AccessibilityNodeInfo nodeInfo, int parentIndex){
+        Rect bounds = new Rect();
+        if(nodeInfo == null){
+            return;
+        }
+        nodeInfo.getBoundsInScreen(bounds);
+        SerializedView view = new SerializedView(
+                nodeInfo.getViewIdResourceName(),
+                (String) nodeInfo.getContentDescription(),
+                (nodeInfo.getText() == null)?"":nodeInfo.getText().toString(),
+                nodeInfo.isVisibleToUser(),
+                nodeInfo.isCheckable(),
+                nodeInfo.isChecked(),
+                nodeInfo.isSelected(),
+                nodeInfo.getChildCount(),
+                nodeInfo.isPassword(),
+                parentIndex,
+                nodeInfo.isFocusable(),
+                nodeInfo.isEditable(),
+                nodeInfo.isFocused(),
+                nodeInfo.isClickable(),
+                (String) nodeInfo.getClassName(),
+                nodeInfo.isScrollable(),
+                nodeInfo.isLongClickable(),
+                "",
+                nodeInfo.isEnabled(),
+                bounds,
+                new ArrayList<Integer>()
+        );
+        int index = nodeList.size();
+        if(parentIndex >= 0){
+            SerializedView parent = nodeList.get(parentIndex);
+            parent.addChildIndex(index);
+        }
+        nodeList.add(view);
+        for(int i = 0; i < nodeInfo.getChildCount(); i++){
+            serializeNodeInfo(nodeList, nodeInfo.getChild(i), index);
         }
     }
 
-    private static void writeNodeInfo(AccessibilityNodeInfo nodeInfo, int indentLevel, PrintWriter writer) {
-        StringBuilder paddingBuilder = new StringBuilder();
-        for (int i = 0; i < indentLevel; i++) paddingBuilder.append("\t");
-        String padding = paddingBuilder.toString();
-        String paddingMinus1 = padding.substring(1);
-        Rect outBounds = new Rect();
-        nodeInfo.getBoundsInScreen(outBounds);
-        writer.println(paddingMinus1 + "{");
-        writer.println(
-                padding +
-                        "\"content_description\" : " +
-                        serializedValue(nodeInfo.getContentDescription()) +
-                        ","
-        );
-        writer.println(padding + "\"resource_id\" : " + serializedValue(nodeInfo.getViewIdResourceName()) + ",");
-        writer.println(padding + "\"text\" : " + serializedValue(nodeInfo.getText()) + ",");
-        writer.println(padding + "\"visible\" : " + serializedValue(nodeInfo.isVisibleToUser()) + ",");
-        writer.println(padding + "\"checkable\" : " + serializedValue(nodeInfo.isCheckable()) + ",");
-        writer.println(padding + "\"size\" : " + serializedValue(
-                (outBounds.bottom - outBounds.top) + "*" + (outBounds.right - outBounds.left)
-                ) + ","
-        );
-        writer.println(padding + "\"checked\" : " + serializedValue(nodeInfo.isChecked()) + ",");
-        writer.println(padding + "\"selected\" : " + serializedValue(nodeInfo.isSelected()) + ",");
-        writer.println(padding + "\"child_count\" : " + serializedValue(nodeInfo.getChildCount()) + ",");
-        writer.println(
-                padding
-                        + "content_free_signature : "
-                        + "\"[class]"
-                        + nodeInfo.getClassName()
-                        + "[resource_id]"
-                        + nodeInfo.getViewIdResourceName()
-                        + "\","
-        );
-        writer.println(padding + "\"is_password\" : " + serializedValue(nodeInfo.isPassword()) + ",");
-        writer.println(padding + "\"focusable\" : " + serializedValue(nodeInfo.isFocusable()) + ",");
-        writer.println(padding + "\"editable\" : " + serializedValue(nodeInfo.isEditable()) + ",");
-        writer.println(padding + "\"focused\" : " + serializedValue(nodeInfo.isFocused()) + ",");
-        writer.println(padding + "\"clickable\" : " + serializedValue(nodeInfo.isClickable()) + ",");
-        writer.println(padding + "\"class\" : " + serializedValue(nodeInfo.getClassName()) + ",");
-        writer.println(padding + "\"scrollable\" : " + serializedValue(nodeInfo.isScrollable()) + ",");
-        writer.println(padding + "\"package\" : " + serializedValue(nodeInfo.getPackageName()) + ",");
-        writer.println(padding + "\"long_clickable\" : " + serializedValue(nodeInfo.isLongClickable()) + ",");
-        writer.println(padding + "\"view_str\" : " + serializedValue(getViewStr(nodeInfo)) + ",");
-        writer.println(padding + "\"enabled\" : " + serializedValue(nodeInfo.isEnabled()) + ",");
-        writeBounds(outBounds, writer, padding);
-        if (nodeInfo.getChildCount() > 0) {
-            writer.println(padding + "\"children\" : [");
-            for (int i = 0; i < nodeInfo.getChildCount(); i++) {
-                writeNodeInfo(nodeInfo.getChild(i), indentLevel + 2, writer);
-            }
-            writer.println(padding + "],");
-        }
-        writer.println(padding + "\"signature\" : " + serializedValue(getSignature(nodeInfo)));
-        writer.println(paddingMinus1 + "},");
-    }
-
-    private static String getSignature(AccessibilityNodeInfo nodeInfo) {
-        return "[" +
-                ((nodeInfo.isEnabled()) ? "enabled" : "") + "," +
-                ((nodeInfo.isChecked()) ? "checked" : "") + "," +
-                ((nodeInfo.isSelected()) ? "selected" : "") + "," +
-                "]";
-    }
-
-    private static String getViewStr(AccessibilityNodeInfo nodeInfo) {
-        //TODO: Implement this properly
-        return "";
+    private String writeNodeInfo(AccessibilityNodeInfo rootNode){
+        List<SerializedView> viewList = new ArrayList<>();
+        serializeNodeInfo(viewList, rootNode, -1);
+        int activityIndex = ActivityLog.getInstance().activityList.size()-1;
+        String activityName = (activityIndex<0)?"[unknown]":ActivityLog.getInstance().activityList.get(activityIndex);
+        SerializationUtils.setViewStrs(viewList, activityName);
+        Type type = new TypeToken<State>(){}.getType();
+        Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+            .create();
+        State state = new State(viewList, activityName);
+        ActivityLog.getInstance().deviceStateList.add(state);
+        return gson.toJson(state, type);
     }
 
     @Override
@@ -215,57 +216,118 @@ public class CorrelationService extends IntentService {
         }
     }
 
-    private void handleInitialize() {
-        Context context = this;
-
-        UQI uqi = new UQI(context);
-        uqi.getData(AccEvent.asWindowChanges(), Purpose.FEATURE("Collect Layout from System"))
-                .keepChanges()
-                .forEach(
-                        new Callback<Item>() {
-                            @Override
-                            protected void onInput(Item input) {
-                                if (AccEvent.class == input.getClass()) {
-                                    //TODO: Handle UI update
-                                    AccEvent event = (AccEvent) input;
-                                    if (!(
-                                            event.getValueByField(AccEvent.PACKAGE_NAME).equals(
-                                                    "com.android.systemui"
-                                            )
-                                    )) {
-                                        Log.v("ON_INPUT", "Event recieved at " + System.currentTimeMillis());
-                                        AccessibilityEvent accessibilityEvent = event.getValueByField(AccEvent.EVENT);
-                                        latestState = event.getValueByField(AccEvent.ROOT_NODE);
-                                        ActivityLog.viewStateList.add(latestState);
-                                    }
-                                }
-                            }
+    private Thread deviceStateLogger = new Thread() {
+        @Override
+        public void run() {
+            super.run();
+            while (!this.isInterrupted()) {
+                try {
+                    if (!(latestState == null)) {
+                        if (!(latestState == lastState)) {
+                            Log.v("LOG_DEVICE_STATE", "Writing state at:" + System.currentTimeMillis());
+                            writeNodeInfoToFile(latestState, "state_" + System.currentTimeMillis() + ".json", getBaseContext());
+                            lastState = latestState;
                         }
-                );
-
-        Thread deviceStateLogger = new Thread() {
-            @Override
-            public void run() {
-                super.run();
-                while (!this.isInterrupted()) {
-                    try {
-                        if (!(latestState == null)) {
-                            if (!(latestState == lastState)) {
-                                Log.v("LOG_DEVICE_STATE", "Writing state at:" + System.currentTimeMillis());
-                                writeNodeInfoToFile(latestState, "state_" + System.currentTimeMillis() + ".json", getBaseContext());
-                                lastState = latestState;
-                            }
-                        }
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        Log.e("TEST_THREAD", e.getMessage());
                     }
-
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Log.e("TEST_THREAD", e.getMessage());
                 }
             }
-        };
+        }
+    };
 
-        deviceStateLogger.run();
+
+    private Thread touchReader = new Thread(){
+        @Override
+        public void run() {
+            super.run();
+            EventsInjector injector = new EventsInjector();
+            InputDevice device = injector.getTouchScreen();
+            if(!device.isOpen()){
+                if(!device.open()){
+                    throw new RuntimeException("Unable to open device: "+device.getName());
+                }
+            }
+            long lastX = 0;
+            long lastY = 0;
+            boolean reset = true;
+            boolean setIsDown = false;
+            TouchEventBuilder touchEventBuilder = new TouchEventBuilder();
+            TouchRecognizer touchRecognizer = TouchRecognizer.getInstance(CorrelationService.this);
+            while(!this.isInterrupted()){
+                RawEvent event = device.getEvent();
+                if(reset){
+                    reset = false;
+                    touchEventBuilder = new TouchEventBuilder();
+                }
+                switch (event.getType()){
+                    case InputDevice.EV_ABS:{
+                        switch(event.getCode()){
+                            case InputDevice.ABS_MT_TRACKING_ID:{
+                                if(event.getValue() < 0){
+                                    touchEventBuilder.setIsDown(false);
+                                } else {
+                                    touchEventBuilder.setIsDown(true);
+                                }
+                                setIsDown = true;
+                            }break;
+                            case InputDevice.ABS_MT_POSITION_X:{
+                                lastX = event.getValue();
+                            }break;
+                            case InputDevice.ABS_MT_POSITION_Y:{
+                                lastY = event.getValue();
+                            }break;
+                            default:{}
+                        }
+                    }break;
+                    case InputDevice.EV_SYN:{
+                        reset = true;
+                        touchEventBuilder.setX(lastX);
+                        touchEventBuilder.setY(lastY);
+                        if(!setIsDown){
+                            touchEventBuilder.setIsDown(true);
+                        }
+                        ActivityLog.getInstance().touchEventList.add(touchEventBuilder.build());
+                        setIsDown = false;
+                        if(!ActivityLog.getInstance().touchEventList.get(ActivityLog.getInstance().touchEventList.size()-1).isDown()){
+                            touchRecognizer.handleTouch();
+                        }
+                    }break;
+                }
+            }
+        }
+    };
+
+    private void handleInitialize() {
+        Context context = this;
+        Log.v("CorrelationService", "INIT!!");
+        UQI uqi = new UQI(context);
+        uqi.getData(AccEvent.asUIActions(), Purpose.FEATURE("Collect Layout from System"))
+            .keepChanges()
+            .forEach(
+                new Callback<Item>() {
+                    @Override
+                    protected void onInput(Item input) {
+                        if (AccEvent.class == input.getClass()) {
+                            if(!CorrelationService.this.touchReader.isAlive()){
+                                CorrelationService.this.touchReader.start();
+                            }
+                            if(!CorrelationService.this.deviceStateLogger.isAlive()){
+                                CorrelationService.this.deviceStateLogger.start();
+                            }
+                            AccEvent event = (AccEvent) input;
+//                                Log.v("ON_INPUT", "Event recieved at " + System.currentTimeMillis());
+                            AccessibilityEvent accessibilityEvent = event.getValueByField(AccEvent.EVENT);
+                            if(accessibilityEvent.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED){
+                                currentActivity = accessibilityEvent.getClassName().toString();
+                            }
+                            latestState = event.getValueByField(AccEvent.ROOT_NODE);
+                            ActivityLog.getInstance().viewStateList.add(latestState);
+                        }
+                    }
+                }
+            );
     }
 
     private Notification buildNotification() {
@@ -308,6 +370,4 @@ public class CorrelationService extends IntentService {
     public void onDestroy() {
         super.onDestroy();
     }
-
-
 }

@@ -3,14 +3,14 @@ package org.honeynet.droidbotrecorder.input;
 
 public class TouchEvent {
     private boolean isDown;
-    private int relX;
-    private int relY;
+    private long relX;
+    private long relY;
     private long timeInMillis;
 
 
 
 
-    public TouchEvent(boolean isDown, int relX, int relY){
+    public TouchEvent(boolean isDown, long relX, long relY){
         this.isDown = isDown;
         this.relX = relX;
         this.relY = relY;
@@ -21,11 +21,11 @@ public class TouchEvent {
         return isDown;
     }
 
-    public int getRelX() {
+    public long getRelX() {
         return relX;
     }
 
-    public int getRelY() {
+    public long getRelY() {
         return relY;
     }
 

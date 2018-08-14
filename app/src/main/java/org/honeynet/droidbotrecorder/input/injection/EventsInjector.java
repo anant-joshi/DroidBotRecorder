@@ -49,6 +49,8 @@ public class EventsInjector {
 
     static native int getValue();
 
+    static native int[] readEvent(int deviceId);
+
     static native int injectEvent(int deviceId, int type, int code, int value);
 
     public InputDevice getTouchScreen() {

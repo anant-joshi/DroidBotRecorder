@@ -99,6 +99,14 @@ JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_Events
 JNIEXPORT jint JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_injectEvent
         (JNIEnv *, jclass, jint, jint, jint, jint);
 
+/*
+ * Class: org_honeynet_droidbotrecorder_input_injection_EventsInjector
+ * Method: readEvent
+ * Signature (I)I
+ */
+JNIEXPORT jintArray JNICALL Java_org_honeynet_droidbotrecorder_input_injection_EventsInjector_readEvent
+        (JNIEnv *, jclass,  jint );
+
 struct uinput_event {
     struct timeval time;
     uint16_t type;
